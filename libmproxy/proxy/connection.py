@@ -150,7 +150,11 @@ class ServerConnection(tcp.TCPClient, stateobject.StateObject):
             path = os.path.join(clientcerts, self.address.host.encode("idna")) + ".pem"
             if os.path.exists(path):
                 clientcert = path
-        self.convert_to_ssl(cert=clientcert, sni=sni)
+        # tcp.TLSv1_2_METHOD, tcp.TLSv1_1_METHOD, tcp.TLSv1_METHOD, tcp.SSLv3_METHOD, tcp.SSLv23_METHOD
+        method = tcp.TLSv1_METHOD
+        if self.address.port == 10221:
+            method = tcp.TLSv1_2_METHOD
+        self.convert_to_ssl(cert=clientcert, sni=sni, method=method)
         self.timestamp_ssl_setup = utils.timestamp()
 
     def finish(self):

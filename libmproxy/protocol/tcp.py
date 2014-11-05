@@ -1,6 +1,8 @@
 from __future__ import absolute_import
 import select
 import socket
+import time
+import struct
 from .primitives import ProtocolHandler
 from netlib.utils import cleanBin
 
@@ -23,11 +25,14 @@ class TCPHandler(ProtocolHandler):
         server = "%s:%s" % self.c.server_conn.address()[:2]
         buf = memoryview(bytearray(self.chunk_size))
         conns = [self.c.client_conn.rfile, self.c.server_conn.rfile]
+        bindump = open("dump.%s.bin" % str(time.time()), "w+b")
+        counter = 0
 
         try:
             while True:
                 r, _, _ = select.select(conns, [], [], 10)
                 for rfile in r:
+                    size = None
                     if self.c.client_conn.rfile == rfile:
                         src, dst = self.c.client_conn, self.c.server_conn
                         direction = "-> tcp ->"
@@ -46,6 +51,8 @@ class TCPHandler(ProtocolHandler):
                         contents += src.rfile.read(src.connection.pending())
                         if not contents:
                             closed = True
+                        else:
+                            size = len(contents)
                     else:
                         size = src.connection.recv_into(buf)
                         if not size:
@@ -76,6 +83,11 @@ class TCPHandler(ProtocolHandler):
                                 ),
                                 "info"
                             )
+                            bindump.write(struct.pack('iiii', 0x544b4350, int(self.c.client_conn.rfile == rfile), size or 0, counter))
+                            bindump.write(contents)
+                            bindump.write(bytearray(15 & (16 - (len(contents) & 15))))
+                            bindump.flush()
+                            counter = counter + 1
                         dst.connection.send(contents)
                     else:
                         # socket.socket.send supports raw bytearrays/memoryviews
@@ -86,6 +98,11 @@ class TCPHandler(ProtocolHandler):
                                 ),
                                 "info"
                             )
+                            bindump.write(struct.pack('iiii', 0x544b4350, int(self.c.client_conn.rfile == rfile), size or 0, counter))
+                            bindump.write(buf[:size])
+                            bindump.write(bytearray(15 & (16 - (size & 15))))
+                            bindump.flush()
+                            counter = counter + 1
                         dst.connection.send(buf[:size])
         except socket.error as e:
             self.c.log("TCP connection closed unexpectedly.", "debug")

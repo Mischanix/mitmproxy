@@ -565,7 +565,7 @@ class FlowMaster(controller.Master):
     def stop_client_playback(self):
         self.client_playback = None
 
-    def start_server_playback(self, flows, kill, headers, exit, nopop, ignore_params, ignore_content):
+    def start_server_playback(self, flows, kill, headers, exit, nopop, ignore_params = None, ignore_content = False):
         """
             flows: List of flows.
             kill: Boolean, should we kill requests not part of the replay?
